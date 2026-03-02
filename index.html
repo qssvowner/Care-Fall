@@ -1,103 +1,122 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Square Game</title>
-    <style>
-        /* CSS: Força o jogo a ser a única coisa na tela */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background-color: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden; /* Impede que apareça barra de rolagem ou texto sobrando */
-            touch-action: none;
-        }
-        canvas {
-            background-color: #000;
-            border: 1px solid #333;
-        }
-        #score {
-            position: absolute;
-            top: 20px;
-            color: #fff;
-            font-family: monospace;
-            font-size: 20px;
-            pointer-events: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Banimento</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: white;
+    text-align: center;
+}
+
+h1 {
+    color: red;
+}
+
+input {
+    padding: 8px;
+    border-radius: 5px;
+    border: none;
+}
+
+button {
+    padding: 8px 12px;
+    border-radius: 5px;
+    border: none;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.criar {
+    background: green;
+    color: white;
+}
+
+.banir {
+    background: red;
+    color: white;
+}
+
+.lista {
+    margin-top: 20px;
+}
+
+.card {
+    background: #222;
+    padding: 10px;
+    margin: 10px auto;
+    width: 250px;
+    border-radius: 8px;
+}
+</style>
 </head>
 <body>
 
-    <div id="score">PONTOS: 0</div>
-    <canvas id="gameCanvas"></canvas>
+<h1>🎮 Simulador de Dono</h1>
 
-    <script>
-        // Todo o jogo fica EXCLUSIVAMENTE dentro desta tag script
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const scoreElement = document.getElementById("score");
+<h3>Criar Conta</h3>
+<input type="text" id="nick" placeholder="Digite seu nick">
+<button class="criar" onclick="criarConta()">Criar</button>
 
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+<div class="lista">
+    <h3>👥 Jogadores</h3>
+    <div id="jogadores"></div>
+</div>
 
-        let score = 0;
-        let gameActive = true;
-        let obstacles = [];
-        let player = { x: canvas.width / 2, y: canvas.height - 80, size: 25 };
+<div class="lista">
+    <h3>🚫 Banidos</h3>
+    <div id="banidos"></div>
+</div>
 
-        function move(e) {
-            if (!gameActive) return;
-            let touchX = e.touches ? e.touches[0].clientX : e.clientX;
-            player.x = touchX - player.size / 2;
-            if (player.x < 0) player.x = 0;
-            if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
-        }
+<script>
+let jogadores = [];
+let banidos = [];
 
-        canvas.addEventListener("touchmove", (e) => { move(e); e.preventDefault(); }, { passive: false });
-        canvas.addEventListener("touchstart", (e) => { move(e); e.preventDefault(); }, { passive: false });
-        canvas.addEventListener("mousemove", move);
+function criarConta() {
+    let nick = document.getElementById("nick").value.trim();
+    if(nick === "") return alert("Digite um nick!");
 
-        function update() {
-            if (!gameActive) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    jogadores.push(nick);
+    document.getElementById("nick").value = "";
+    atualizarLista();
+}
 
-            // Desenha Jogador
-            ctx.fillStyle = "#fff";
-            ctx.fillRect(player.x, player.y, player.size, player.size);
+function banir(index) {
+    let nickBanido = jogadores[index];
+    banidos.push(nickBanido);
+    jogadores.splice(index, 1);
+    atualizarLista();
+}
 
-            // Gerar e mover obstáculos
-            if (Math.random() < 0.06) {
-                obstacles.push({ x: Math.random() * (canvas.width - 20), y: -20, speed: 5 + (score/10) });
-            }
+function atualizarLista() {
+    let listaJogadores = document.getElementById("jogadores");
+    let listaBanidos = document.getElementById("banidos");
 
-            ctx.fillStyle = "#888";
-            ctx.font = "30px Arial";
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let o = obstacles[i];
-                o.y += o.speed;
-                ctx.fillText("?", o.x, o.y);
+    listaJogadores.innerHTML = "";
+    listaBanidos.innerHTML = "";
 
-                // Colisão
-                if (o.y > player.y && o.y < player.y + player.size && o.x > player.x - 10 && o.x < player.x + player.size) {
-                    gameActive = false;
-                    alert("FIM DE JOGO! Pontos: " + score);
-                    location.reload();
-                }
+    jogadores.forEach((nick, index) => {
+        listaJogadores.innerHTML += `
+            <div class="card">
+                ${nick}
+                <button class="banir" onclick="banir(${index})">Banir</button>
+            </div>
+        `;
+    });
 
-                // Ponto
-                if (o.y > canvas.height) {
-                    obstacles.splice(i, 1);
-                    score++;
-                    scoreElement.innerText = "PONTOS: " + score;
-                }
-            }
-            requestAnimationFrame(update);
-        }
-        update();
-    </script>
+    banidos.forEach(nick => {
+        listaBanidos.innerHTML += `
+            <div class="card" style="background:#400;">
+                ${nick}
+            </div>
+        `;
+    });
+}
+</script>
+
 </body>
 </html>
