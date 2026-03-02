@@ -3,104 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Desafio Minimalista</title>
+    <title>Square Minimalist</title>
     <style>
-        * { box-sizing: border-box; }
+        /* Remove qualquer texto sobrando e trava a tela */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
-            margin: 0;
-            padding: 0;
-            background-color: #000; /* Tudo Preto */
-            color: #fff; /* Texto Branco */
-            font-family: 'Courier New', Courier, monospace;
+            background-color: #000;
+            color: #fff;
+            font-family: sans-serif;
             display: flex;
-            flex-direction: column;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             height: 100vh;
             overflow: hidden;
             touch-action: none;
         }
-        #game-container {
+
+        #canvas-container {
             position: relative;
-            border: 2px solid #fff; /* Borda Branca */
+            border: 2px solid #333;
         }
+
         canvas {
             display: block;
-            background-color: #111; /* Fundo Cinza muito escuro */
+            background-color: #000;
         }
-        .placar {
+
+        #score {
             position: absolute;
-            top: -30px;
-            left: 0;
-            font-size: 18px;
-            letter-spacing: 2px;
+            top: -25px;
+            left: 5px;
+            font-size: 16px;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div class="placar">SCORE: <span id="pontos">0</span></div>
+    <div id="canvas-container">
+        <div id="score">SCORE: 0</div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        const spanPontos = document.getElementById("pontos");
+        const scoreElement = document.getElementById("score");
 
-        // Área maior: 95% da largura e 80% da altura
+        // Ajuste de tela
         canvas.width = window.innerWidth * 0.95;
-        canvas.height = window.innerHeight * 0.8;
+        canvas.height = window.innerHeight * 0.85;
 
-        let pontos = 0;
-        let jogoAtivo = true;
-        let interrogacoes = [];
+        let score = 0;
+        let gameActive = true;
+        let enemies = [];
 
-        // Quadrado menor e branco
-        let jogador = {
+        // Quadrado Branco e Menor
+        let player = {
             x: canvas.width / 2 - 15,
-            y: canvas.height - 50,
-            tam: 30, // Menor que o anterior
-            cor: "#fff" 
+            y: canvas.height - 60,
+            size: 25, 
+            color: "#fff"
         };
 
-        // Melhoria no Toque: Segue o dedo suavemente
-        function mover(e) {
-            if (!jogoAtivo) return;
-            
-            let clientX;
-            if (e.touches) {
-                clientX = e.touches[0].clientX;
-            } else {
-                clientX = e.clientX;
-            }
-
+        // Controle de Toque Otimizado
+        function handleMove(e) {
+            if (!gameActive) return;
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
             let rect = canvas.getBoundingClientRect();
-            let touchX = clientX - rect.left;
+            let x = clientX - rect.left;
+            
+            player.x = x - player.size / 2;
 
-            // O quadrado agora centraliza exatamente no seu dedo
-            jogador.x = touchX - jogador.tam / 2;
-
-            // Trava nas bordas
-            if (jogador.x < 0) jogador.x = 0;
-            if (jogador.x > canvas.width - jogador.tam) jogador.x = canvas.width - jogador.tam;
+            // Mantém dentro da tela
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
         }
 
-        // Eventos de toque e mouse
-        canvas.addEventListener("touchstart", mover, { passive: false });
-        canvas.addEventListener("touchmove", (e) => { mover(e); e.preventDefault(); }, { passive: false });
-        canvas.addEventListener("mousemove", mover);
+        canvas.addEventListener("touchmove", (e) => { handleMove(e); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener("touchstart", (e) => { handleMove(e); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener("mousemove", handleMove);
 
-        function criarInimigo() {
-            // Aumentei a frequência de queda (0.08)
-            if (Math.random() < 0.08) {
-                interrogacoes.push({
+        function spawnEnemy() {
+            if (Math.random() < 0.07) {
+                enemies.push({
                     x: Math.random() * (canvas.width - 20),
-                    y: -20,
-                    vel: 5 + (pontos / 5), // Começa mais rápido
-                    texto: "?"
+                    y: -30,
+                    speed: 4 + (score / 10)
                 });
+            }
+        }
+
+        function update() {
+            if (!gameActive) return;
+
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Jogador
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+
+            // Inimigos (?)
+            ctx.fillStyle = "#888"; // Cinza
+            ctx.font = "bold 30px Arial";
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                e.y += e.speed;
+
+                ctx.fillText("?", e.x, e.y);
+
+                // Colisão (Ajustada para o tamanho menor)
+                if (e.y > player.y && e.y < player.y + player.size &&
+                    e.x > player.x - 10 && e.x < player.x + player.size) {
+                    gameActive = false;
+                    alert("GAME OVER! Score: " + score);
+                    location.reload();
+                }
+
+                // Ganha ponto
+                if (e.y > canvas.height) {
+                    enemies.splice(i, 1);
+                    score++;
+                    scoreElement.innerText = "SCORE: " + score;
+                }
+            }
+
+            spawnEnemy();
+            requestAnimationFrame(update);
+        }
+
+        update();
+    </script>
+</body>
+</html>
             }
         }
 
