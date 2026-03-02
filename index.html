@@ -2,11 +2,13 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Desafio da Interrogação</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Desafio Mobile</title>
     <style>
-        /* CSS: Deixa o visual limpo e centralizado */
+        /* CSS: Trava o movimento da tela e ajusta o tamanho */
         body {
             margin: 0;
+            padding: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -15,49 +17,71 @@
             background-color: #1a1a1a;
             color: white;
             font-family: Arial, sans-serif;
+            /* Evita que a tela suba/desça ao arrastar o dedo */
+            touch-action: none; 
             overflow: hidden;
         }
         canvas {
-            border: 4px solid #fff;
             background-color: #222;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border: 2px solid #00ff88;
+            display: block;
         }
-        .placar {
-            font-size: 24px;
-            margin-bottom: 10px;
+        .info {
+            position: absolute;
+            top: 10px;
+            font-size: 20px;
+            pointer-events: none; /* Não atrapalha o toque */
         }
-    </style>
+    </script>
 </head>
 <body>
 
-    <div class="placar">Pontos: <span id="pontos">0</span></div>
+    <div class="info">Pontos: <span id="pontos">0</span></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // JS: A lógica do jogo
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const spanPontos = document.getElementById("pontos");
 
-        canvas.width = 400;
-        canvas.height = 500;
+        // Ajusta o tamanho do jogo para o tamanho da tela do celular
+        canvas.width = window.innerWidth * 0.95;
+        canvas.height = window.innerHeight * 0.8;
 
-        let jogador = { x: 180, y: 440, tam: 40, vel: 7 };
+        let jogador = { 
+            x: canvas.width / 2 - 25, 
+            y: canvas.height - 70, 
+            tam: 50 
+        };
+        
         let interrogacoes = [];
         let pontos = 0;
         let jogoAtivo = true;
-        let teclas = {};
 
-        // Detecta teclas pressionadas
-        window.addEventListener("keydown", (e) => teclas[e.key] = true);
-        window.addEventListener("keyup", (e) => teclas[e.key] = false);
+        // CONTROLE TOUCH (Celular)
+        canvas.addEventListener("touchmove", (e) => {
+            if (!jogoAtivo) return;
+            // Pega a posição do toque relativa ao canvas
+            let touch = e.touches[0];
+            let rect = canvas.getBoundingClientRect();
+            let touchX = touch.clientX - rect.left;
+            
+            // Centraliza o quadrado no dedo
+            jogador.x = touchX - jogador.tam / 2;
+
+            // Evita que o quadrado saia das bordas
+            if (jogador.x < 0) jogador.x = 0;
+            if (jogador.x > canvas.width - jogador.tam) jogador.x = canvas.width - jogador.tam;
+            
+            e.preventDefault(); // Impede a tela de rolar
+        }, { passive: false });
 
         function criarInterrogacao() {
-            if (Math.random() < 0.03) { // Chance de aparecer a cada frame
+            if (Math.random() < 0.04) { 
                 interrogacoes.push({
-                    x: Math.random() * (canvas.width - 20),
-                    y: -20,
-                    vel: 3 + (pontos / 10) // Fica mais rápido com o tempo!
+                    x: Math.random() * (canvas.width - 30),
+                    y: -30,
+                    vel: 4 + (pontos / 8)
                 });
             }
         }
@@ -65,42 +89,51 @@
         function atualizar() {
             if (!jogoAtivo) return;
 
-            // Movimento do quadrado
-            if (teclas["ArrowLeft"] && jogador.x > 0) jogador.x -= jogador.vel;
-            if (teclas["ArrowRight"] && jogador.x < canvas.width - jogador.tam) jogador.x += jogador.vel;
-
-            interrogacoes.forEach((p, index) => {
+            for (let i = interrogacoes.length - 1; i >= 0; i--) {
+                let p = interrogacoes[i];
                 p.y += p.vel;
 
-                // Colisão (Quadrado morre)
-                if (p.y + 20 > jogador.y && p.x > jogador.x && p.x < jogador.x + jogador.tam) {
+                // Colisão aprimorada
+                if (p.y + 20 > jogador.y && 
+                    p.x > jogador.x - 10 && 
+                    p.x < jogador.x + jogador.tam + 10) {
                     jogoAtivo = false;
-                    alert("Game Over! Você fez " + pontos + " pontos.");
-                    location.reload(); // Reinicia o jogo
+                    alert("Game Over! Pontos: " + pontos);
+                    location.reload();
                 }
 
-                // Ponto (Chegou no fim da tela)
+                // Ponto quando cai no final
                 if (p.y > canvas.height) {
-                    interrogacoes.splice(index, 1);
+                    interrogacoes.splice(i, 1);
                     pontos++;
                     spanPontos.innerText = pontos;
                 }
-            });
-
+            }
             criarInterrogacao();
         }
 
         function desenhar() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Desenha Jogador
-            ctx.fillStyle = "#00ff88";
+            // Jogador (Azul Neon para destacar)
+            ctx.fillStyle = "#00d2ff";
             ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
 
-            // Desenha Interrogações
+            // Inimigos (Interrogações vermelhas)
             ctx.fillStyle = "#ff4444";
-            ctx.font = "30px Arial";
+            ctx.font = "bold 40px Arial";
             interrogacoes.forEach(p => {
+                ctx.fillText("?", p.x, p.y);
+            });
+
+            atualizar();
+            requestAnimationFrame(desenhar);
+        }
+
+        desenhar();
+    </script>
+</body>
+</html>
                 ctx.fillText("?", p.x, p.y);
             });
 
