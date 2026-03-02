@@ -3,240 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Square Minimalist</title>
+    <title>Square Game</title>
     <style>
-        /* Remove qualquer texto sobrando e trava a tela */
+        /* CSS: Força o jogo a ser a única coisa na tela */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         body {
             background-color: #000;
-            color: #fff;
-            font-family: sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden; /* Impede que apareça barra de rolagem ou texto sobrando */
             touch-action: none;
         }
-
-        #canvas-container {
-            position: relative;
-            border: 2px solid #333;
-        }
-
         canvas {
-            display: block;
             background-color: #000;
+            border: 1px solid #333;
         }
-
         #score {
             position: absolute;
-            top: -25px;
-            left: 5px;
-            font-size: 16px;
+            top: 20px;
+            color: #fff;
             font-family: monospace;
+            font-size: 20px;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container">
-        <div id="score">SCORE: 0</div>
-        <canvas id="gameCanvas"></canvas>
-    </div>
+    <div id="score">PONTOS: 0</div>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
+        // Todo o jogo fica EXCLUSIVAMENTE dentro desta tag script
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const scoreElement = document.getElementById("score");
 
-        // Ajuste de tela
-        canvas.width = window.innerWidth * 0.95;
-        canvas.height = window.innerHeight * 0.85;
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
         let score = 0;
         let gameActive = true;
-        let enemies = [];
+        let obstacles = [];
+        let player = { x: canvas.width / 2, y: canvas.height - 80, size: 25 };
 
-        // Quadrado Branco e Menor
-        let player = {
-            x: canvas.width / 2 - 15,
-            y: canvas.height - 60,
-            size: 25, 
-            color: "#fff"
-        };
-
-        // Controle de Toque Otimizado
-        function handleMove(e) {
+        function move(e) {
             if (!gameActive) return;
-            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            let rect = canvas.getBoundingClientRect();
-            let x = clientX - rect.left;
-            
-            player.x = x - player.size / 2;
-
-            // Mantém dentro da tela
+            let touchX = e.touches ? e.touches[0].clientX : e.clientX;
+            player.x = touchX - player.size / 2;
             if (player.x < 0) player.x = 0;
             if (player.x > canvas.width - player.size) player.x = canvas.width - player.size;
         }
 
-        canvas.addEventListener("touchmove", (e) => { handleMove(e); e.preventDefault(); }, { passive: false });
-        canvas.addEventListener("touchstart", (e) => { handleMove(e); e.preventDefault(); }, { passive: false });
-        canvas.addEventListener("mousemove", handleMove);
-
-        function spawnEnemy() {
-            if (Math.random() < 0.07) {
-                enemies.push({
-                    x: Math.random() * (canvas.width - 20),
-                    y: -30,
-                    speed: 4 + (score / 10)
-                });
-            }
-        }
+        canvas.addEventListener("touchmove", (e) => { move(e); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener("touchstart", (e) => { move(e); e.preventDefault(); }, { passive: false });
+        canvas.addEventListener("mousemove", move);
 
         function update() {
             if (!gameActive) return;
-
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Jogador
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.size, player.size);
-
-            // Inimigos (?)
-            ctx.fillStyle = "#888"; // Cinza
-            ctx.font = "bold 30px Arial";
-
-            for (let i = enemies.length - 1; i >= 0; i--) {
-                let e = enemies[i];
-                e.y += e.speed;
-
-                ctx.fillText("?", e.x, e.y);
-
-                // Colisão (Ajustada para o tamanho menor)
-                if (e.y > player.y && e.y < player.y + player.size &&
-                    e.x > player.x - 10 && e.x < player.x + player.size) {
-                    gameActive = false;
-                    alert("GAME OVER! Score: " + score);
-                    location.reload();
-                }
-
-                // Ganha ponto
-                if (e.y > canvas.height) {
-                    enemies.splice(i, 1);
-                    score++;
-                    scoreElement.innerText = "SCORE: " + score;
-                }
-            }
-
-            spawnEnemy();
-            requestAnimationFrame(update);
-        }
-
-        update();
-    </script>
-</body>
-</html>
-            }
-        }
-
-        function loop() {
-            if (!jogoAtivo) return;
-
-            // Limpa o fundo (Cinza escuro)
-            ctx.fillStyle = "#111";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Desenha Jogador (Branco)
-            ctx.fillStyle = jogador.cor;
-            ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
-
-            // Desenha Inimigos (Cinza claro)
-            ctx.fillStyle = "#ccc";
-            ctx.font = "bold 35px Arial";
-            
-            for (let i = interrogacoes.length - 1; i >= 0; i--) {
-                let p = interrogacoes[i];
-                p.y += p.vel; // Movimento de queda
-
-                ctx.fillText(p.texto, p.x, p.y);
-
-                // Colisão mais precisa
-                if (p.y > jogador.y && 
-                    p.y < jogador.y + jogador.tam + 20 &&
-                    p.x > jogador.x - 15 && 
-                    p.x < jogador.x + jogador.tam) {
-                    
-                    jogoAtivo = false;
-                    alert("FIM DE JOGO\nPontos: " + pontos);
-                    location.reload();
-                }
-
-                // Ponto quando a interrogação sai por baixo
-                if (p.y > canvas.height + 20) {
-                    interrogacoes.splice(i, 1);
-                    pontos++;
-                    spanPontos.innerText = pontos;
-                }
-            }
-
-            criarInimigo();
-            requestAnimationFrame(loop);
-        }
-
-        loop();
-    </script>
-</body>
-</html>
-        }
-
-        function loop() {
-            if (!jogoAtivo) return;
-
-            // Limpa a tela com uma cor escura para garantir que não fique cinza
-            ctx.fillStyle = "#222";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Desenha Jogador
-            ctx.fillStyle = jogador.cor;
-            ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(player.x, player.y, player.size, player.size);
 
-            // Desenha e Move as Interrogações
-            ctx.fillStyle = "#ff4444";
-            ctx.font = "bold 40px Arial";
-            
-            for (let i = interrogacoes.length - 1; i >= 0; i--) {
-                let p = interrogacoes[i];
-                p.y += p.vel;
+            // Gerar e mover obstáculos
+            if (Math.random() < 0.06) {
+                obstacles.push({ x: Math.random() * (canvas.width - 20), y: -20, speed: 5 + (score/10) });
+            }
 
-                ctx.fillText(p.texto, p.x, p.y);
+            ctx.fillStyle = "#888";
+            ctx.font = "30px Arial";
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let o = obstacles[i];
+                o.y += o.speed;
+                ctx.fillText("?", o.x, o.y);
 
                 // Colisão
-                if (p.y > jogador.y && 
-                    p.x > jogador.x - 20 && 
-                    p.x < jogador.x + jogador.tam) {
-                    jogoAtivo = false;
-                    alert("GAME OVER! Pontos: " + pontos);
+                if (o.y > player.y && o.y < player.y + player.size && o.x > player.x - 10 && o.x < player.x + player.size) {
+                    gameActive = false;
+                    alert("FIM DE JOGO! Pontos: " + score);
                     location.reload();
                 }
 
                 // Ponto
-                if (p.y > canvas.height) {
-                    interrogacoes.splice(i, 1);
-                    pontos++;
-                    spanPontos.innerText = pontos;
+                if (o.y > canvas.height) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreElement.innerText = "PONTOS: " + score;
                 }
             }
-
-            criarInimigo();
-            requestAnimationFrame(loop);
+            requestAnimationFrame(update);
         }
-
-        // Inicia o loop
-        loop();
+        update();
     </script>
 </body>
 </html>
-
