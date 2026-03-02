@@ -3,45 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Meu Jogo Mobile</title>
+    <title>Desafio Minimalista</title>
     <style>
         * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 0;
-            background-color: #1a1a1a;
-            color: white;
-            font-family: sans-serif;
+            background-color: #000; /* Tudo Preto */
+            color: #fff; /* Texto Branco */
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             overflow: hidden;
-            touch-action: none; /* Trava o scroll da página */
+            touch-action: none;
         }
         #game-container {
             position: relative;
-            border: 3px solid #00ff88;
+            border: 2px solid #fff; /* Borda Branca */
         }
         canvas {
             display: block;
-            background-color: #222;
+            background-color: #111; /* Fundo Cinza muito escuro */
         }
         .placar {
             position: absolute;
-            top: -35px;
+            top: -30px;
             left: 0;
-            font-size: 22px;
-            font-weight: bold;
-            color: #00ff88;
+            font-size: 18px;
+            letter-spacing: 2px;
         }
     </style>
 </head>
 <body>
 
     <div id="game-container">
-        <div class="placar">PONTOS: <span id="pontos">0</span></div>
+        <div class="placar">SCORE: <span id="pontos">0</span></div>
         <canvas id="gameCanvas"></canvas>
     </div>
 
@@ -50,58 +49,109 @@
         const ctx = canvas.getContext("2d");
         const spanPontos = document.getElementById("pontos");
 
-        // Ajuste de tamanho dinâmico
-        canvas.width = window.innerWidth * 0.9;
-        canvas.height = window.innerHeight * 0.7;
+        // Área maior: 95% da largura e 80% da altura
+        canvas.width = window.innerWidth * 0.95;
+        canvas.height = window.innerHeight * 0.8;
 
         let pontos = 0;
         let jogoAtivo = true;
         let interrogacoes = [];
 
-        // Quadrado (Jogador)
+        // Quadrado menor e branco
         let jogador = {
-            x: canvas.width / 2 - 25,
-            y: canvas.height - 60,
-            tam: 50,
-            cor: "#00d2ff"
+            x: canvas.width / 2 - 15,
+            y: canvas.height - 50,
+            tam: 30, // Menor que o anterior
+            cor: "#fff" 
         };
 
-        // CONTROLE TOUCH CORRIGIDO
+        // Melhoria no Toque: Segue o dedo suavemente
         function mover(e) {
             if (!jogoAtivo) return;
             
-            let touchX;
+            let clientX;
             if (e.touches) {
-                // Mobile
-                touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+                clientX = e.touches[0].clientX;
             } else {
-                // Mouse (para testar no PC)
-                touchX = e.clientX - canvas.getBoundingClientRect().left;
+                clientX = e.clientX;
             }
 
+            let rect = canvas.getBoundingClientRect();
+            let touchX = clientX - rect.left;
+
+            // O quadrado agora centraliza exatamente no seu dedo
             jogador.x = touchX - jogador.tam / 2;
 
-            // Limites da tela
+            // Trava nas bordas
             if (jogador.x < 0) jogador.x = 0;
             if (jogador.x > canvas.width - jogador.tam) jogador.x = canvas.width - jogador.tam;
         }
 
-        canvas.addEventListener("touchmove", (e) => {
-            mover(e);
-            e.preventDefault();
-        }, { passive: false });
-
+        // Eventos de toque e mouse
+        canvas.addEventListener("touchstart", mover, { passive: false });
+        canvas.addEventListener("touchmove", (e) => { mover(e); e.preventDefault(); }, { passive: false });
         canvas.addEventListener("mousemove", mover);
 
         function criarInimigo() {
-            if (Math.random() < 0.05) {
+            // Aumentei a frequência de queda (0.08)
+            if (Math.random() < 0.08) {
                 interrogacoes.push({
-                    x: Math.random() * (canvas.width - 30),
-                    y: -40,
-                    vel: 3 + (pontos / 10),
+                    x: Math.random() * (canvas.width - 20),
+                    y: -20,
+                    vel: 5 + (pontos / 5), // Começa mais rápido
                     texto: "?"
                 });
             }
+        }
+
+        function loop() {
+            if (!jogoAtivo) return;
+
+            // Limpa o fundo (Cinza escuro)
+            ctx.fillStyle = "#111";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Desenha Jogador (Branco)
+            ctx.fillStyle = jogador.cor;
+            ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
+
+            // Desenha Inimigos (Cinza claro)
+            ctx.fillStyle = "#ccc";
+            ctx.font = "bold 35px Arial";
+            
+            for (let i = interrogacoes.length - 1; i >= 0; i--) {
+                let p = interrogacoes[i];
+                p.y += p.vel; // Movimento de queda
+
+                ctx.fillText(p.texto, p.x, p.y);
+
+                // Colisão mais precisa
+                if (p.y > jogador.y && 
+                    p.y < jogador.y + jogador.tam + 20 &&
+                    p.x > jogador.x - 15 && 
+                    p.x < jogador.x + jogador.tam) {
+                    
+                    jogoAtivo = false;
+                    alert("FIM DE JOGO\nPontos: " + pontos);
+                    location.reload();
+                }
+
+                // Ponto quando a interrogação sai por baixo
+                if (p.y > canvas.height + 20) {
+                    interrogacoes.splice(i, 1);
+                    pontos++;
+                    spanPontos.innerText = pontos;
+                }
+            }
+
+            criarInimigo();
+            requestAnimationFrame(loop);
+        }
+
+        loop();
+    </script>
+</body>
+</html>
         }
 
         function loop() {
