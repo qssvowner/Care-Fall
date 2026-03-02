@@ -3,145 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Desafio Mobile</title>
+    <title>Meu Jogo Mobile</title>
     <style>
-        /* CSS: Trava o movimento da tela e ajusta o tamanho */
+        * { box-sizing: border-box; }
         body {
             margin: 0;
             padding: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            background-color: #1a1a1a;
-            color: white;
-            font-family: Arial, sans-serif;
-            /* Evita que a tela suba/desça ao arrastar o dedo */
-            touch-action: none; 
             overflow: hidden;
+            touch-action: none; /* Trava o scroll da página */
+        }
+        #game-container {
+            position: relative;
+            border: 3px solid #00ff88;
         }
         canvas {
-            background-color: #222;
-            border: 2px solid #00ff88;
             display: block;
+            background-color: #222;
         }
-        .info {
+        .placar {
             position: absolute;
-            top: 10px;
-            font-size: 20px;
-            pointer-events: none; /* Não atrapalha o toque */
+            top: -35px;
+            left: 0;
+            font-size: 22px;
+            font-weight: bold;
+            color: #00ff88;
         }
-    </script>
+    </style>
 </head>
 <body>
 
-    <div class="info">Pontos: <span id="pontos">0</span></div>
-    <canvas id="gameCanvas"></canvas>
+    <div id="game-container">
+        <div class="placar">PONTOS: <span id="pontos">0</span></div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
     <script>
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         const spanPontos = document.getElementById("pontos");
 
-        // Ajusta o tamanho do jogo para o tamanho da tela do celular
-        canvas.width = window.innerWidth * 0.95;
-        canvas.height = window.innerHeight * 0.8;
+        // Ajuste de tamanho dinâmico
+        canvas.width = window.innerWidth * 0.9;
+        canvas.height = window.innerHeight * 0.7;
 
-        let jogador = { 
-            x: canvas.width / 2 - 25, 
-            y: canvas.height - 70, 
-            tam: 50 
-        };
-        
-        let interrogacoes = [];
         let pontos = 0;
         let jogoAtivo = true;
+        let interrogacoes = [];
 
-        // CONTROLE TOUCH (Celular)
-        canvas.addEventListener("touchmove", (e) => {
+        // Quadrado (Jogador)
+        let jogador = {
+            x: canvas.width / 2 - 25,
+            y: canvas.height - 60,
+            tam: 50,
+            cor: "#00d2ff"
+        };
+
+        // CONTROLE TOUCH CORRIGIDO
+        function mover(e) {
             if (!jogoAtivo) return;
-            // Pega a posição do toque relativa ao canvas
-            let touch = e.touches[0];
-            let rect = canvas.getBoundingClientRect();
-            let touchX = touch.clientX - rect.left;
             
-            // Centraliza o quadrado no dedo
+            let touchX;
+            if (e.touches) {
+                // Mobile
+                touchX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
+            } else {
+                // Mouse (para testar no PC)
+                touchX = e.clientX - canvas.getBoundingClientRect().left;
+            }
+
             jogador.x = touchX - jogador.tam / 2;
 
-            // Evita que o quadrado saia das bordas
+            // Limites da tela
             if (jogador.x < 0) jogador.x = 0;
             if (jogador.x > canvas.width - jogador.tam) jogador.x = canvas.width - jogador.tam;
-            
-            e.preventDefault(); // Impede a tela de rolar
+        }
+
+        canvas.addEventListener("touchmove", (e) => {
+            mover(e);
+            e.preventDefault();
         }, { passive: false });
 
-        function criarInterrogacao() {
-            if (Math.random() < 0.04) { 
+        canvas.addEventListener("mousemove", mover);
+
+        function criarInimigo() {
+            if (Math.random() < 0.05) {
                 interrogacoes.push({
                     x: Math.random() * (canvas.width - 30),
-                    y: -30,
-                    vel: 4 + (pontos / 8)
+                    y: -40,
+                    vel: 3 + (pontos / 10),
+                    texto: "?"
                 });
             }
         }
 
-        function atualizar() {
+        function loop() {
             if (!jogoAtivo) return;
 
+            // Limpa a tela com uma cor escura para garantir que não fique cinza
+            ctx.fillStyle = "#222";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Desenha Jogador
+            ctx.fillStyle = jogador.cor;
+            ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
+
+            // Desenha e Move as Interrogações
+            ctx.fillStyle = "#ff4444";
+            ctx.font = "bold 40px Arial";
+            
             for (let i = interrogacoes.length - 1; i >= 0; i--) {
                 let p = interrogacoes[i];
                 p.y += p.vel;
 
-                // Colisão aprimorada
-                if (p.y + 20 > jogador.y && 
-                    p.x > jogador.x - 10 && 
-                    p.x < jogador.x + jogador.tam + 10) {
+                ctx.fillText(p.texto, p.x, p.y);
+
+                // Colisão
+                if (p.y > jogador.y && 
+                    p.x > jogador.x - 20 && 
+                    p.x < jogador.x + jogador.tam) {
                     jogoAtivo = false;
-                    alert("Game Over! Pontos: " + pontos);
+                    alert("GAME OVER! Pontos: " + pontos);
                     location.reload();
                 }
 
-                // Ponto quando cai no final
+                // Ponto
                 if (p.y > canvas.height) {
                     interrogacoes.splice(i, 1);
                     pontos++;
                     spanPontos.innerText = pontos;
                 }
             }
-            criarInterrogacao();
+
+            criarInimigo();
+            requestAnimationFrame(loop);
         }
 
-        function desenhar() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Jogador (Azul Neon para destacar)
-            ctx.fillStyle = "#00d2ff";
-            ctx.fillRect(jogador.x, jogador.y, jogador.tam, jogador.tam);
-
-            // Inimigos (Interrogações vermelhas)
-            ctx.fillStyle = "#ff4444";
-            ctx.font = "bold 40px Arial";
-            interrogacoes.forEach(p => {
-                ctx.fillText("?", p.x, p.y);
-            });
-
-            atualizar();
-            requestAnimationFrame(desenhar);
-        }
-
-        desenhar();
+        // Inicia o loop
+        loop();
     </script>
 </body>
 </html>
-                ctx.fillText("?", p.x, p.y);
-            });
 
-            atualizar();
-            requestAnimationFrame(desenhar);
-        }
-
-        desenhar();
-    </script>
-</body>
-</html>
