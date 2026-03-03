@@ -1,122 +1,251 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulador de Banimento</title>
-
-<style>
-body {
-    font-family: Arial, sans-serif;
-    background: #111;
-    color: white;
-    text-align: center;
-}
-
-h1 {
-    color: red;
-}
-
-input {
-    padding: 8px;
-    border-radius: 5px;
-    border: none;
-}
-
-button {
-    padding: 8px 12px;
-    border-radius: 5px;
-    border: none;
-    cursor: pointer;
-    margin-left: 5px;
-}
-
-.criar {
-    background: green;
-    color: white;
-}
-
-.banir {
-    background: red;
-    color: white;
-}
-
-.lista {
-    margin-top: 20px;
-}
-
-.card {
-    background: #222;
-    padding: 10px;
-    margin: 10px auto;
-    width: 250px;
-    border-radius: 8px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Downwards - No Config Edition</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #000; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+            color: white;
+        }
+        #game-container {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+            border: 2px solid #333;
+        }
+        #game-canvas {
+            background-color: #111;
+            display: block;
+            cursor: pointer;
+        }
+        .ui { text-align: center; margin-bottom: 10px; }
+        .score-box { font-size: 22px; font-weight: bold; }
+        .high-score { font-size: 14px; opacity: 0.6; margin-top: 4px; }
+        
+        /* Menu de opções removido visualmente se não houver botão, 
+           mas mantemos o estilo caso queiras que apareça apenas no fim do jogo futuramente */
+        #menu-opcoes {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(34, 34, 34, 0.95);
+            padding: 25px;
+            border: 2px solid #fff;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 100;
+            width: 260px;
+            backdrop-filter: blur(5px);
+        }
+    </style>
 </head>
 <body>
 
-<h1>🎮 Simulador de Dono</h1>
-
-<h3>Criar Conta</h3>
-<input type="text" id="nick" placeholder="Digite seu nick">
-<button class="criar" onclick="criarConta()">Criar</button>
-
-<div class="lista">
-    <h3>👥 Jogadores</h3>
-    <div id="jogadores"></div>
+<div class="ui">
+    <div class="score-box">Pontos: <span id="pontos">0</span></div>
+    <div class="high-score">Recorde: <span id="recorde">0</span></div>
 </div>
 
-<div class="lista">
-    <h3>🚫 Banidos</h3>
-    <div id="banidos"></div>
+<div id="game-container">
+    <canvas id="game-canvas"></canvas>
 </div>
+
+<audio id="musicaFundo" loop>
+    <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+</audio>
 
 <script>
-let jogadores = [];
-let banidos = [];
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const displayPontos = document.getElementById('pontos');
+    const displayRecorde = document.getElementById('recorde');
+    const musica = document.getElementById('musicaFundo');
+    
+    // Aumentei um pouco o volume conforme a tua dúvida anterior
+    musica.volume = 0.2; 
+    canvas.width = 350;
+    canvas.height = 500;
 
-function criarConta() {
-    let nick = document.getElementById("nick").value.trim();
-    if(nick === "") return alert("Digite um nick!");
+    let jogoAtivo = true;
+    let jogoIniciado = false;
+    let podeRespawnar = false; 
+    let score = 0;
+    let shakeFrames = 0;
+    let particulas = [];
+    const player = { x: canvas.width / 2, y: canvas.height - 60, vivo: true };
+    let obstaculos = [];
+    let timeoutObstaculo = null;
 
-    jogadores.push(nick);
-    document.getElementById("nick").value = "";
-    atualizarLista();
-}
+    displayRecorde.innerText = localStorage.getItem('highScore') || 0;
 
-function banir(index) {
-    let nickBanido = jogadores[index];
-    banidos.push(nickBanido);
-    jogadores.splice(index, 1);
-    atualizarLista();
-}
+    function moverPlayer(clientX) {
+        if (!jogoIniciado || !jogoAtivo || !player.vivo) return;
+        const rect = canvas.getBoundingClientRect();
+        player.x = clientX - rect.left;
+        player.x = Math.max(15, Math.min(canvas.width - 15, player.x));
+    }
 
-function atualizarLista() {
-    let listaJogadores = document.getElementById("jogadores");
-    let listaBanidos = document.getElementById("banidos");
+    canvas.addEventListener('mousemove', (e) => moverPlayer(e.clientX));
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        moverPlayer(e.touches[0].clientX);
+    }, { passive: false });
 
-    listaJogadores.innerHTML = "";
-    listaBanidos.innerHTML = "";
+    const iniciarOuResetar = () => {
+        musica.play().catch(() => {});
+        if (!jogoIniciado) {
+            jogoIniciado = true;
+            resetarJogo();
+        } else if (!jogoAtivo && podeRespawnar) {
+            resetarJogo();
+        }
+    };
 
-    jogadores.forEach((nick, index) => {
-        listaJogadores.innerHTML += `
-            <div class="card">
-                ${nick}
-                <button class="banir" onclick="banir(${index})">Banir</button>
-            </div>
-        `;
-    });
+    canvas.addEventListener('mousedown', iniciarOuResetar);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarOuResetar(); }, { passive: false });
 
-    banidos.forEach(nick => {
-        listaBanidos.innerHTML += `
-            <div class="card" style="background:#400;">
-                ${nick}
-            </div>
-        `;
-    });
-}
+    function criarParticulas(x, y) {
+        for (let i = 0; i < 15; i++) {
+            particulas.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 10,
+                vy: (Math.random() - 0.5) * 10,
+                size: Math.random() * 8 + 2,
+                vida: 1.0
+            });
+        }
+    }
+
+    function criarObstaculo() {
+        if (!jogoAtivo || !player.vivo) return;
+        obstaculos.push({ 
+            x: Math.random() * (canvas.width - 30) + 15, 
+            y: -30, 
+            speed: 3 + (score / 250), 
+            angulo: 0 
+        });
+        let proximoSpawn = Math.max(200, 850 - (score * 1.1));
+        timeoutObstaculo = setTimeout(criarObstaculo, proximoSpawn);
+    }
+
+    function resetarJogo() {
+        score = 0; 
+        displayPontos.innerText = "0"; 
+        obstaculos = []; 
+        particulas = [];
+        jogoAtivo = true; 
+        player.vivo = true;
+        podeRespawnar = false;
+        shakeFrames = 0;
+        player.x = canvas.width / 2; 
+        if (timeoutObstaculo) clearTimeout(timeoutObstaculo);
+        canvas.style.cursor = 'none';
+        criarObstaculo(); 
+        requestAnimationFrame(atualizar);
+    }
+
+    function atualizar() {
+        if (!jogoAtivo && shakeFrames <= 0 && particulas.length === 0) return;
+
+        ctx.save();
+        if (shakeFrames > 0) {
+            ctx.translate(Math.random() * 10 - 5, Math.random() * 10 - 5);
+            shakeFrames--;
+        }
+
+        ctx.clearRect(-20, -20, canvas.width + 40, canvas.height + 40);
+
+        if (jogoIniciado) {
+            for (let i = particulas.length - 1; i >= 0; i--) {
+                let p = particulas[i];
+                p.x += p.vx; p.y += p.vy; p.vida -= 0.02;
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.vida})`;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+                if (p.vida <= 0) particulas.splice(i, 1);
+            }
+
+            if (player.vivo) {
+                ctx.fillStyle = "white"; 
+                ctx.font = "53px serif"; 
+                ctx.textAlign = "center";
+                ctx.fillText("■", player.x, player.y);
+            }
+
+            for (let i = obstaculos.length - 1; i >= 0; i--) {
+                let o = obstaculos[i]; 
+                if (jogoAtivo) o.y += o.speed; 
+                o.angulo += 0.08;
+
+                ctx.save(); 
+                ctx.translate(o.x, o.y); 
+                ctx.rotate(o.angulo);
+                ctx.fillStyle = "#ff4444"; 
+                ctx.font = "bold 25px Arial"; 
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("?", 0, 0); 
+                ctx.restore();
+
+                if (player.vivo) {
+                    const dx = player.x - o.x; 
+                    const dy = (player.y - 15) - o.y;
+                    if (Math.sqrt(dx*dx + dy*dy) < 28) {
+                        player.vivo = false;
+                        jogoAtivo = false; 
+                        shakeFrames = 20; 
+                        criarParticulas(player.x, player.y);
+                        canvas.style.cursor = 'pointer';
+                        
+                        let recorde = parseInt(localStorage.getItem('highScore') || 0);
+                        if (score > recorde) localStorage.setItem('highScore', score);
+                        displayRecorde.innerText = localStorage.getItem('highScore');
+
+                        setTimeout(() => podeRespawnar = true, 800);
+                    }
+                }
+
+                if (o.y > canvas.height + 50) { 
+                    obstaculos.splice(i, 1); 
+                    if (jogoAtivo) {
+                        score += 10; 
+                        displayPontos.innerText = score; 
+                    }
+                }
+            }
+
+            if (!jogoAtivo && !player.vivo) {
+                ctx.fillStyle = "white"; 
+                ctx.font = "bold 30px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("FIM DE JOGO", canvas.width/2, canvas.height/2);
+            }
+        } else {
+            ctx.fillStyle = "white"; 
+            ctx.textAlign = "center"; 
+            ctx.font = "bold 20px Arial";
+            ctx.fillText("CLIQUE PARA JOGAR", canvas.width/2, canvas.height/2);
+        }
+        
+        ctx.restore();
+        requestAnimationFrame(atualizar);
+    }
+    
+    atualizar();
 </script>
-
 </body>
 </html>
