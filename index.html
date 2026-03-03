@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Downwards - No Config Edition</title>
+    <title>Downwards - Shape-Shift Edition</title>
     <style>
         body {
             margin: 0;
@@ -22,35 +22,17 @@
             position: relative;
             border-radius: 12px;
             overflow: hidden;
-            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
             border: 2px solid #333;
         }
         #game-canvas {
-            background-color: #111;
+            background-color: #050505;
             display: block;
             cursor: pointer;
         }
         .ui { text-align: center; margin-bottom: 10px; }
-        .score-box { font-size: 22px; font-weight: bold; }
+        .score-box { font-size: 22px; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
         .high-score { font-size: 14px; opacity: 0.6; margin-top: 4px; }
-        
-        /* Menu de opções removido visualmente se não houver botão, 
-           mas mantemos o estilo caso queiras que apareça apenas no fim do jogo futuramente */
-        #menu-opcoes {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(34, 34, 34, 0.95);
-            padding: 25px;
-            border: 2px solid #fff;
-            border-radius: 15px;
-            text-align: center;
-            z-index: 100;
-            width: 260px;
-            backdrop-filter: blur(5px);
-        }
     </style>
 </head>
 <body>
@@ -75,7 +57,6 @@
     const displayRecorde = document.getElementById('recorde');
     const musica = document.getElementById('musicaFundo');
     
-    // Aumentei um pouco o volume conforme a tua dúvida anterior
     musica.volume = 0.2; 
     canvas.width = 350;
     canvas.height = 500;
@@ -86,9 +67,15 @@
     let score = 0;
     let shakeFrames = 0;
     let particulas = [];
-    const player = { x: canvas.width / 2, y: canvas.height - 60, vivo: true };
     let obstaculos = [];
     let timeoutObstaculo = null;
+
+    const player = { 
+        x: canvas.width / 2, 
+        y: canvas.height - 60, 
+        size: 20, 
+        vivo: true 
+    };
 
     displayRecorde.innerText = localStorage.getItem('highScore') || 0;
 
@@ -96,7 +83,7 @@
         if (!jogoIniciado || !jogoAtivo || !player.vivo) return;
         const rect = canvas.getBoundingClientRect();
         player.x = clientX - rect.left;
-        player.x = Math.max(15, Math.min(canvas.width - 15, player.x));
+        player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
     }
 
     canvas.addEventListener('mousemove', (e) => moverPlayer(e.clientX));
@@ -118,14 +105,15 @@
     canvas.addEventListener('mousedown', iniciarOuResetar);
     canvas.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarOuResetar(); }, { passive: false });
 
-    function criarParticulas(x, y) {
-        for (let i = 0; i < 15; i++) {
+    function criarParticulas(x, y, cor) {
+        for (let i = 0; i < 20; i++) {
             particulas.push({
                 x: x,
                 y: y,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
-                size: Math.random() * 8 + 2,
+                vx: (Math.random() - 0.5) * 12,
+                vy: (Math.random() - 0.5) * 12,
+                size: Math.random() * 5 + 2,
+                cor: cor || 'white',
                 vida: 1.0
             });
         }
@@ -133,13 +121,23 @@
 
     function criarObstaculo() {
         if (!jogoAtivo || !player.vivo) return;
+        
+        // Sorteia o número de lados (3 a 8)
+        const lados = Math.floor(Math.random() * 6) + 3;
+        
         obstaculos.push({ 
-            x: Math.random() * (canvas.width - 30) + 15, 
-            y: -30, 
-            speed: 3 + (score / 250), 
-            angulo: 0 
+            x: Math.random() * (canvas.width - 60) + 30, 
+            y: -50, 
+            size: 18,
+            lados: lados,
+            speed: 3 + (score / 300), 
+            angulo: 0,
+            rotVel: (Math.random() - 0.5) * 0.15,
+            faseDistorcao: Math.random() * Math.PI * 2,
+            corHue: Math.random() * 360
         });
-        let proximoSpawn = Math.max(200, 850 - (score * 1.1));
+        
+        let proximoSpawn = Math.max(180, 900 - (score * 1.2));
         timeoutObstaculo = setTimeout(criarObstaculo, proximoSpawn);
     }
 
@@ -164,80 +162,113 @@
 
         ctx.save();
         if (shakeFrames > 0) {
-            ctx.translate(Math.random() * 10 - 5, Math.random() * 10 - 5);
+            ctx.translate(Math.random() * 12 - 6, Math.random() * 12 - 6);
             shakeFrames--;
         }
 
-        ctx.clearRect(-20, -20, canvas.width + 40, canvas.height + 40);
+        ctx.clearRect(-50, -50, canvas.width + 100, canvas.height + 100);
 
-        if (jogoIniciado) {
-            for (let i = particulas.length - 1; i >= 0; i--) {
-                let p = particulas[i];
-                p.x += p.vx; p.y += p.vy; p.vida -= 0.02;
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.vida})`;
-                ctx.fillRect(p.x, p.y, p.size, p.size);
-                if (p.vida <= 0) particulas.splice(i, 1);
+        // --- Partículas de explosão ---
+        for (let i = particulas.length - 1; i >= 0; i--) {
+            let p = particulas[i];
+            p.x += p.vx; p.y += p.vy; p.vida -= 0.02;
+            ctx.fillStyle = p.cor;
+            ctx.globalAlpha = p.vida;
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+            if (p.vida <= 0) particulas.splice(i, 1);
+        }
+        ctx.globalAlpha = 1.0;
+
+        // --- Jogador (Brilho Interno) ---
+        if (player.vivo) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "white";
+            ctx.fillStyle = "white";
+            ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+            ctx.shadowBlur = 0;
+        }
+
+        // --- Obstáculos Geomórficos ---
+        for (let i = obstaculos.length - 1; i >= 0; i--) {
+            let o = obstaculos[i]; 
+            if (jogoAtivo) {
+                o.y += o.speed; 
+                o.angulo += o.rotVel;
+                o.faseDistorcao += 0.07;
+                o.corHue = (o.corHue + 1.5) % 360;
             }
 
+            const distorcao = Math.sin(o.faseDistorcao) * 6;
+            const tFinal = o.size + distorcao;
+
+            ctx.save(); 
+            ctx.translate(o.x, o.y); 
+            ctx.rotate(o.angulo);
+
+            // Gradiente Fluido
+            let grad = ctx.createRadialGradient(0, 0, 0, 0, 0, tFinal * 1.5);
+            grad.addColorStop(0, `hsl(${o.corHue}, 100%, 70%)`);
+            grad.addColorStop(1, `hsl(${(o.corHue + 60) % 360}, 100%, 40%)`);
+
+            ctx.fillStyle = grad;
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = `hsla(${o.corHue}, 100%, 50%, 0.6)`;
+
+            // Desenho do Polígono
+            ctx.beginPath();
+            for (let j = 0; j < o.lados; j++) {
+                let r = (Math.PI * 2 / o.lados) * j;
+                let px = Math.cos(r) * tFinal;
+                let py = Math.sin(r) * tFinal;
+                if (j === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // Colisão (Aumentada levemente para compensar distorção)
             if (player.vivo) {
-                ctx.fillStyle = "white"; 
-                ctx.font = "53px serif"; 
-                ctx.textAlign = "center";
-                ctx.fillText("■", player.x, player.y);
-            }
+                const dx = player.x - o.x; 
+                const dy = player.y - o.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < (player.size/2 + tFinal)) {
+                    player.vivo = false;
+                    jogoAtivo = false; 
+                    shakeFrames = 25; 
+                    criarParticulas(player.x, player.y, `hsl(${o.corHue}, 100%, 50%)`);
+                    canvas.style.cursor = 'pointer';
+                    
+                    let recorde = parseInt(localStorage.getItem('highScore') || 0);
+                    if (score > recorde) localStorage.setItem('highScore', score);
+                    displayRecorde.innerText = localStorage.getItem('highScore');
 
-            for (let i = obstaculos.length - 1; i >= 0; i--) {
-                let o = obstaculos[i]; 
-                if (jogoAtivo) o.y += o.speed; 
-                o.angulo += 0.08;
-
-                ctx.save(); 
-                ctx.translate(o.x, o.y); 
-                ctx.rotate(o.angulo);
-                ctx.fillStyle = "#ff4444"; 
-                ctx.font = "bold 25px Arial"; 
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText("?", 0, 0); 
-                ctx.restore();
-
-                if (player.vivo) {
-                    const dx = player.x - o.x; 
-                    const dy = (player.y - 15) - o.y;
-                    if (Math.sqrt(dx*dx + dy*dy) < 28) {
-                        player.vivo = false;
-                        jogoAtivo = false; 
-                        shakeFrames = 20; 
-                        criarParticulas(player.x, player.y);
-                        canvas.style.cursor = 'pointer';
-                        
-                        let recorde = parseInt(localStorage.getItem('highScore') || 0);
-                        if (score > recorde) localStorage.setItem('highScore', score);
-                        displayRecorde.innerText = localStorage.getItem('highScore');
-
-                        setTimeout(() => podeRespawnar = true, 800);
-                    }
-                }
-
-                if (o.y > canvas.height + 50) { 
-                    obstaculos.splice(i, 1); 
-                    if (jogoAtivo) {
-                        score += 10; 
-                        displayPontos.innerText = score; 
-                    }
+                    setTimeout(() => podeRespawnar = true, 800);
                 }
             }
 
-            if (!jogoAtivo && !player.vivo) {
-                ctx.fillStyle = "white"; 
-                ctx.font = "bold 30px Arial";
-                ctx.textAlign = "center";
-                ctx.fillText("FIM DE JOGO", canvas.width/2, canvas.height/2);
+            if (o.y > canvas.height + 100) { 
+                obstaculos.splice(i, 1); 
+                if (jogoAtivo) {
+                    score += 10; 
+                    displayPontos.innerText = score; 
+                }
             }
-        } else {
+        }
+
+        // --- UI de Fim de Jogo ---
+        if (jogoIniciado && !jogoAtivo && !player.vivo) {
+            ctx.fillStyle = "white"; 
+            ctx.font = "bold 30px Segoe UI";
+            ctx.textAlign = "center";
+            ctx.fillText("FIM DE JOGO", canvas.width/2, canvas.height/2);
+            ctx.font = "16px Segoe UI";
+            ctx.globalAlpha = 0.7;
+            ctx.fillText("Clique para tentar de novo", canvas.width/2, canvas.height/2 + 40);
+        } else if (!jogoIniciado) {
             ctx.fillStyle = "white"; 
             ctx.textAlign = "center"; 
-            ctx.font = "bold 20px Arial";
+            ctx.font = "bold 22px Segoe UI";
             ctx.fillText("CLIQUE PARA JOGAR", canvas.width/2, canvas.height/2);
         }
         
